@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fixity-ingress
+  namespace: fixity
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: fixity.homelab.justdev.ca
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fixity-service
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - fixity.homelab.justdev.ca
+      secretName: fixity-tls
