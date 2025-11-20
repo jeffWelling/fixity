@@ -1,0 +1,794 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>storage: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/jeffanddom/fixity/internal/storage/local.go (91.8%)</option>
+				
+				<option value="file1">github.com/jeffanddom/fixity/internal/storage/nfs.go (87.0%)</option>
+				
+				<option value="file2">github.com/jeffanddom/fixity/internal/storage/smb.go (87.0%)</option>
+				
+				<option value="file3">github.com/jeffanddom/fixity/internal/storage/storage.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package storage
+
+import (
+        "context"
+        "fmt"
+        "io"
+        "os"
+        "path/filepath"
+)
+
+// LocalFSBackend implements StorageBackend for local filesystem
+type LocalFSBackend struct {
+        rootPath string
+}
+
+// NewLocalFSBackend creates a new local filesystem backend
+func NewLocalFSBackend(rootPath string) (*LocalFSBackend, error) <span class="cov4" title="50">{
+        // Clean and validate path
+        absPath, err := filepath.Abs(rootPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
+        }</span>
+
+        // Resolve any symlinks in the path to ensure security checks work correctly
+        // This is especially important on systems where temp directories might be symlinked
+        <span class="cov4" title="50">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err != nil </span><span class="cov2" title="3">{
+                // If symlink resolution fails, path might not exist yet - use absPath
+                evalPath = absPath
+        }</span>
+
+        <span class="cov4" title="50">return &amp;LocalFSBackend{
+                rootPath: evalPath,
+        }, nil</span>
+}
+
+// Probe checks if the storage root is accessible
+func (b *LocalFSBackend) Probe(ctx context.Context) error <span class="cov3" title="13">{
+        info, err := os.Stat(b.rootPath)
+        if err != nil </span><span class="cov2" title="3">{
+                if os.IsNotExist(err) </span><span class="cov2" title="3">{
+                        return fmt.Errorf("storage root does not exist: %s", b.rootPath)
+                }</span>
+                <span class="cov0" title="0">return fmt.Errorf("failed to access storage root: %w", err)</span>
+        }
+
+        <span class="cov3" title="10">if !info.IsDir() </span><span class="cov1" title="1">{
+                return fmt.Errorf("storage root is not a directory: %s", b.rootPath)
+        }</span>
+
+        // Check if we can read the directory
+        <span class="cov3" title="9">f, err := os.Open(b.rootPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to open storage root: %w", err)
+        }</span>
+        <span class="cov3" title="9">defer f.Close()
+
+        // Try to read directory contents to verify permissions
+        _, err = f.Readdirnames(1)
+        if err != nil &amp;&amp; err != io.EOF </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to read storage root: %w", err)
+        }</span>
+
+        <span class="cov3" title="9">return nil</span>
+}
+
+// Walk traverses all files in the storage
+func (b *LocalFSBackend) Walk(ctx context.Context, fn WalkFunc) error <span class="cov7" title="1016">{
+        return filepath.Walk(b.rootPath, func(path string, info os.FileInfo, err error) error </span><span class="cov10" title="9110">{
+                // Check context cancellation
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov1" title="2">
+                        return ctx.Err()</span>
+                default:<span class="cov9" title="9108"></span>
+                }
+
+                <span class="cov9" title="9108">if err != nil </span><span class="cov1" title="1">{
+                        // If we can't access this path, skip it and continue
+                        return nil
+                }</span>
+
+                // Convert to relative path from root
+                <span class="cov9" title="9107">relPath, err := filepath.Rel(b.rootPath, path)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to get relative path: %w", err)
+                }</span>
+
+                // Skip the root directory itself
+                <span class="cov9" title="9107">if relPath == "." </span><span class="cov7" title="1016">{
+                        return nil
+                }</span>
+
+                // Convert to forward slashes for consistency
+                <span class="cov9" title="8091">relPath = filepath.ToSlash(relPath)
+
+                fileInfo := &amp;FileInfo{
+                        Path:    relPath,
+                        Size:    info.Size(),
+                        ModTime: info.ModTime(),
+                        IsDir:   info.IsDir(),
+                }
+
+                return fn(relPath, fileInfo)</span>
+        })
+}
+
+// Open opens a file for reading
+func (b *LocalFSBackend) Open(ctx context.Context, path string) (io.ReadCloser, error) <span class="cov7" title="1056">{
+        // Convert from relative to absolute path
+        absPath := filepath.Join(b.rootPath, filepath.FromSlash(path))
+
+        // Verify the path is within rootPath (prevent directory traversal)
+        if !filepath.HasPrefix(absPath, b.rootPath) </span><span class="cov3" title="8">{
+                return nil, fmt.Errorf("path traversal attempt detected: %s", path)
+        }</span>
+
+        // Resolve symlinks and verify they stay within boundaries
+        <span class="cov7" title="1048">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err == nil </span><span class="cov7" title="1038">{
+                // If symlink resolution succeeds, check if it escaped
+                if !filepath.HasPrefix(evalPath, b.rootPath) </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("symlink points outside storage boundary: %s", path)
+                }</span>
+                <span class="cov7" title="1037">absPath = evalPath</span>
+        }
+
+        <span class="cov7" title="1047">f, err := os.Open(absPath)
+        if err != nil </span><span class="cov3" title="10">{
+                return nil, fmt.Errorf("failed to open file: %w", err)
+        }</span>
+
+        <span class="cov7" title="1037">return f, nil</span>
+}
+
+// Stat returns file metadata
+func (b *LocalFSBackend) Stat(ctx context.Context, path string) (*FileInfo, error) <span class="cov7" title="1046">{
+        // Convert from relative to absolute path
+        absPath := filepath.Join(b.rootPath, filepath.FromSlash(path))
+
+        // Verify the path is within rootPath (prevent directory traversal)
+        if !filepath.HasPrefix(absPath, b.rootPath) </span><span class="cov2" title="6">{
+                return nil, fmt.Errorf("path traversal attempt detected: %s", path)
+        }</span>
+
+        // Resolve symlinks and verify they stay within boundaries
+        <span class="cov7" title="1040">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err == nil </span><span class="cov7" title="1031">{
+                // If symlink resolution succeeds, check if it escaped
+                if !filepath.HasPrefix(evalPath, b.rootPath) </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("symlink points outside storage boundary: %s", path)
+                }</span>
+                <span class="cov7" title="1030">absPath = evalPath</span>
+        }
+
+        <span class="cov7" title="1039">info, err := os.Stat(absPath)
+        if err != nil </span><span class="cov3" title="9">{
+                return nil, fmt.Errorf("failed to stat file: %w", err)
+        }</span>
+
+        <span class="cov7" title="1030">return &amp;FileInfo{
+                Path:    path,
+                Size:    info.Size(),
+                ModTime: info.ModTime(),
+                IsDir:   info.IsDir(),
+        }, nil</span>
+}
+
+// Close cleans up resources (no-op for local filesystem)
+func (b *LocalFSBackend) Close() error <span class="cov4" title="26">{
+        return nil
+}</span>
+
+// RootPath returns the absolute root path of this backend
+func (b *LocalFSBackend) RootPath() string <span class="cov3" title="9">{
+        return b.rootPath
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package storage
+
+import (
+        "context"
+        "fmt"
+        "io"
+        "os"
+        "path/filepath"
+)
+
+// NFSBackend implements StorageBackend for NFS mounts
+// Assumes the NFS share is already mounted at the specified path
+type NFSBackend struct {
+        rootPath string
+        server   string
+        share    string
+}
+
+// NewNFSBackend creates a new NFS backend
+// In production environments, the NFS share should be mounted before initializing this backend
+// For example in Kubernetes, an NFS PersistentVolume would be mounted at rootPath
+func NewNFSBackend(server, share, mountPath string) (*NFSBackend, error) <span class="cov4" title="35">{
+        if server == "" </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("NFS server is required")
+        }</span>
+        <span class="cov4" title="34">if share == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("NFS share path is required")
+        }</span>
+        <span class="cov4" title="34">if mountPath == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("mount path is required")
+        }</span>
+
+        // Clean and validate path
+        <span class="cov4" title="34">absPath, err := filepath.Abs(mountPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
+        }</span>
+
+        // Resolve any symlinks in the path to ensure security checks work correctly
+        // This is especially important on systems where temp directories might be symlinked
+        <span class="cov4" title="34">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err != nil </span><span class="cov2" title="3">{
+                // If symlink resolution fails, path might not exist yet - use absPath
+                evalPath = absPath
+        }</span>
+
+        <span class="cov4" title="34">return &amp;NFSBackend{
+                rootPath: evalPath,
+                server:   server,
+                share:    share,
+        }, nil</span>
+}
+
+// Probe checks if the NFS mount is accessible
+func (b *NFSBackend) Probe(ctx context.Context) error <span class="cov3" title="13">{
+        info, err := os.Stat(b.rootPath)
+        if err != nil </span><span class="cov2" title="3">{
+                if os.IsNotExist(err) </span><span class="cov2" title="3">{
+                        return fmt.Errorf("NFS mount point does not exist: %s (server: %s, share: %s)",
+                                b.rootPath, b.server, b.share)
+                }</span>
+                <span class="cov0" title="0">return fmt.Errorf("failed to access NFS mount point: %w", err)</span>
+        }
+
+        <span class="cov3" title="10">if !info.IsDir() </span><span class="cov0" title="0">{
+                return fmt.Errorf("NFS mount point is not a directory: %s", b.rootPath)
+        }</span>
+
+        // Check if we can read the directory
+        <span class="cov3" title="10">f, err := os.Open(b.rootPath)
+        if err != nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("failed to open NFS mount point: %w", err)
+        }</span>
+        <span class="cov3" title="9">defer f.Close()
+
+        // Try to read directory contents to verify permissions
+        _, err = f.Readdirnames(1)
+        if err != nil &amp;&amp; err != io.EOF </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to read NFS mount point: %w", err)
+        }</span>
+
+        <span class="cov3" title="9">return nil</span>
+}
+
+// Walk traverses all files in the NFS storage
+func (b *NFSBackend) Walk(ctx context.Context, fn WalkFunc) error <span class="cov7" title="1013">{
+        return filepath.Walk(b.rootPath, func(path string, info os.FileInfo, err error) error </span><span class="cov10" title="9091">{
+                // Check context cancellation
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov1" title="1">
+                        return ctx.Err()</span>
+                default:<span class="cov9" title="9090"></span>
+                }
+
+                <span class="cov9" title="9090">if err != nil </span><span class="cov1" title="2">{
+                        // If we can't access this path, skip it and continue
+                        // This is especially important for NFS where network issues can occur
+                        return nil
+                }</span>
+
+                // Convert to relative path from root
+                <span class="cov9" title="9088">relPath, err := filepath.Rel(b.rootPath, path)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to get relative path: %w", err)
+                }</span>
+
+                // Skip the root directory itself
+                <span class="cov9" title="9088">if relPath == "." </span><span class="cov7" title="1012">{
+                        return nil
+                }</span>
+
+                // Convert to forward slashes for consistency
+                <span class="cov9" title="8076">relPath = filepath.ToSlash(relPath)
+
+                fileInfo := &amp;FileInfo{
+                        Path:    relPath,
+                        Size:    info.Size(),
+                        ModTime: info.ModTime(),
+                        IsDir:   info.IsDir(),
+                }
+
+                return fn(relPath, fileInfo)</span>
+        })
+}
+
+// Open opens a file for reading from NFS
+func (b *NFSBackend) Open(ctx context.Context, path string) (io.ReadCloser, error) <span class="cov7" title="1073">{
+        // Convert from relative to absolute path
+        absPath := filepath.Join(b.rootPath, filepath.FromSlash(path))
+
+        // Verify the path is within rootPath (prevent directory traversal)
+        if !filepath.HasPrefix(absPath, b.rootPath) </span><span class="cov2" title="7">{
+                return nil, fmt.Errorf("path traversal attempt detected: %s", path)
+        }</span>
+
+        // Resolve symlinks and verify they stay within boundaries
+        <span class="cov7" title="1066">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err == nil </span><span class="cov7" title="1055">{
+                // If symlink resolution succeeds, check if it escaped
+                if !filepath.HasPrefix(evalPath, b.rootPath) </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("symlink points outside storage boundary: %s", path)
+                }</span>
+                <span class="cov7" title="1054">absPath = evalPath</span>
+        }
+
+        <span class="cov7" title="1065">f, err := os.Open(absPath)
+        if err != nil </span><span class="cov3" title="11">{
+                return nil, fmt.Errorf("failed to open file from NFS: %w", err)
+        }</span>
+
+        <span class="cov7" title="1054">return f, nil</span>
+}
+
+// Stat returns file metadata from NFS
+func (b *NFSBackend) Stat(ctx context.Context, path string) (*FileInfo, error) <span class="cov7" title="1057">{
+        // Convert from relative to absolute path
+        absPath := filepath.Join(b.rootPath, filepath.FromSlash(path))
+
+        // Verify the path is within rootPath (prevent directory traversal)
+        if !filepath.HasPrefix(absPath, b.rootPath) </span><span class="cov2" title="5">{
+                return nil, fmt.Errorf("path traversal attempt detected: %s", path)
+        }</span>
+
+        // Resolve symlinks and verify they stay within boundaries
+        <span class="cov7" title="1052">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err == nil </span><span class="cov7" title="1044">{
+                // If symlink resolution succeeds, check if it escaped
+                if !filepath.HasPrefix(evalPath, b.rootPath) </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("symlink points outside storage boundary: %s", path)
+                }</span>
+                <span class="cov7" title="1043">absPath = evalPath</span>
+        }
+
+        <span class="cov7" title="1051">info, err := os.Stat(absPath)
+        if err != nil </span><span class="cov3" title="8">{
+                return nil, fmt.Errorf("failed to stat file on NFS: %w", err)
+        }</span>
+
+        <span class="cov7" title="1043">return &amp;FileInfo{
+                Path:    path,
+                Size:    info.Size(),
+                ModTime: info.ModTime(),
+                IsDir:   info.IsDir(),
+        }, nil</span>
+}
+
+// Close cleans up resources (no-op for NFS)
+func (b *NFSBackend) Close() error <span class="cov4" title="26">{
+        return nil
+}</span>
+
+// Server returns the NFS server address
+func (b *NFSBackend) Server() string <span class="cov0" title="0">{
+        return b.server
+}</span>
+
+// Share returns the NFS share path
+func (b *NFSBackend) Share() string <span class="cov0" title="0">{
+        return b.share
+}</span>
+
+// RootPath returns the absolute mount path
+func (b *NFSBackend) RootPath() string <span class="cov3" title="9">{
+        return b.rootPath
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package storage
+
+import (
+        "context"
+        "fmt"
+        "io"
+        "os"
+        "path/filepath"
+)
+
+// SMBBackend implements StorageBackend for SMB/CIFS shares
+// Assumes the SMB share is already mounted at the specified path
+type SMBBackend struct {
+        rootPath string
+        server   string
+        share    string
+}
+
+// NewSMBBackend creates a new SMB backend
+// In production environments, the SMB share should be mounted before initializing this backend
+// For example in Kubernetes, a CIFS FlexVolume or CSI driver would mount the share at rootPath
+func NewSMBBackend(server, share, mountPath string) (*SMBBackend, error) <span class="cov4" title="35">{
+        if server == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("SMB server is required")
+        }</span>
+        <span class="cov4" title="35">if share == "" </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("SMB share name is required")
+        }</span>
+        <span class="cov4" title="34">if mountPath == "" </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("mount path is required")
+        }</span>
+
+        // Clean and validate path
+        <span class="cov4" title="34">absPath, err := filepath.Abs(mountPath)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to resolve absolute path: %w", err)
+        }</span>
+
+        // Resolve any symlinks in the path to ensure security checks work correctly
+        // This is especially important on systems where temp directories might be symlinked
+        <span class="cov4" title="34">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err != nil </span><span class="cov2" title="3">{
+                // If symlink resolution fails, path might not exist yet - use absPath
+                evalPath = absPath
+        }</span>
+
+        <span class="cov4" title="34">return &amp;SMBBackend{
+                rootPath: evalPath,
+                server:   server,
+                share:    share,
+        }, nil</span>
+}
+
+// Probe checks if the SMB mount is accessible
+func (b *SMBBackend) Probe(ctx context.Context) error <span class="cov3" title="13">{
+        info, err := os.Stat(b.rootPath)
+        if err != nil </span><span class="cov2" title="3">{
+                if os.IsNotExist(err) </span><span class="cov2" title="3">{
+                        return fmt.Errorf("SMB mount point does not exist: %s (server: %s, share: %s)",
+                                b.rootPath, b.server, b.share)
+                }</span>
+                <span class="cov0" title="0">return fmt.Errorf("failed to access SMB mount point: %w", err)</span>
+        }
+
+        <span class="cov3" title="10">if !info.IsDir() </span><span class="cov0" title="0">{
+                return fmt.Errorf("SMB mount point is not a directory: %s", b.rootPath)
+        }</span>
+
+        // Check if we can read the directory
+        <span class="cov3" title="10">f, err := os.Open(b.rootPath)
+        if err != nil </span><span class="cov1" title="1">{
+                return fmt.Errorf("failed to open SMB mount point: %w", err)
+        }</span>
+        <span class="cov3" title="9">defer f.Close()
+
+        // Try to read directory contents to verify permissions
+        _, err = f.Readdirnames(1)
+        if err != nil &amp;&amp; err != io.EOF </span><span class="cov0" title="0">{
+                return fmt.Errorf("failed to read SMB mount point: %w", err)
+        }</span>
+
+        <span class="cov3" title="9">return nil</span>
+}
+
+// Walk traverses all files in the SMB storage
+func (b *SMBBackend) Walk(ctx context.Context, fn WalkFunc) error <span class="cov7" title="1013">{
+        return filepath.Walk(b.rootPath, func(path string, info os.FileInfo, err error) error </span><span class="cov10" title="9091">{
+                // Check context cancellation
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov1" title="1">
+                        return ctx.Err()</span>
+                default:<span class="cov9" title="9090"></span>
+                }
+
+                <span class="cov9" title="9090">if err != nil </span><span class="cov1" title="2">{
+                        // If we can't access this path, skip it and continue
+                        // This is especially important for SMB where network issues can occur
+                        return nil
+                }</span>
+
+                // Convert to relative path from root
+                <span class="cov9" title="9088">relPath, err := filepath.Rel(b.rootPath, path)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("failed to get relative path: %w", err)
+                }</span>
+
+                // Skip the root directory itself
+                <span class="cov9" title="9088">if relPath == "." </span><span class="cov7" title="1012">{
+                        return nil
+                }</span>
+
+                // Convert to forward slashes for consistency
+                <span class="cov9" title="8076">relPath = filepath.ToSlash(relPath)
+
+                fileInfo := &amp;FileInfo{
+                        Path:    relPath,
+                        Size:    info.Size(),
+                        ModTime: info.ModTime(),
+                        IsDir:   info.IsDir(),
+                }
+
+                return fn(relPath, fileInfo)</span>
+        })
+}
+
+// Open opens a file for reading from SMB
+func (b *SMBBackend) Open(ctx context.Context, path string) (io.ReadCloser, error) <span class="cov7" title="1073">{
+        // Convert from relative to absolute path
+        absPath := filepath.Join(b.rootPath, filepath.FromSlash(path))
+
+        // Verify the path is within rootPath (prevent directory traversal)
+        if !filepath.HasPrefix(absPath, b.rootPath) </span><span class="cov2" title="7">{
+                return nil, fmt.Errorf("path traversal attempt detected: %s", path)
+        }</span>
+
+        // Resolve symlinks and verify they stay within boundaries
+        <span class="cov7" title="1066">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err == nil </span><span class="cov7" title="1055">{
+                // If symlink resolution succeeds, check if it escaped
+                if !filepath.HasPrefix(evalPath, b.rootPath) </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("symlink points outside storage boundary: %s", path)
+                }</span>
+                <span class="cov7" title="1054">absPath = evalPath</span>
+        }
+
+        <span class="cov7" title="1065">f, err := os.Open(absPath)
+        if err != nil </span><span class="cov3" title="11">{
+                return nil, fmt.Errorf("failed to open file from SMB: %w", err)
+        }</span>
+
+        <span class="cov7" title="1054">return f, nil</span>
+}
+
+// Stat returns file metadata from SMB
+func (b *SMBBackend) Stat(ctx context.Context, path string) (*FileInfo, error) <span class="cov7" title="1057">{
+        // Convert from relative to absolute path
+        absPath := filepath.Join(b.rootPath, filepath.FromSlash(path))
+
+        // Verify the path is within rootPath (prevent directory traversal)
+        if !filepath.HasPrefix(absPath, b.rootPath) </span><span class="cov2" title="5">{
+                return nil, fmt.Errorf("path traversal attempt detected: %s", path)
+        }</span>
+
+        // Resolve symlinks and verify they stay within boundaries
+        <span class="cov7" title="1052">evalPath, err := filepath.EvalSymlinks(absPath)
+        if err == nil </span><span class="cov7" title="1044">{
+                // If symlink resolution succeeds, check if it escaped
+                if !filepath.HasPrefix(evalPath, b.rootPath) </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("symlink points outside storage boundary: %s", path)
+                }</span>
+                <span class="cov7" title="1043">absPath = evalPath</span>
+        }
+
+        <span class="cov7" title="1051">info, err := os.Stat(absPath)
+        if err != nil </span><span class="cov3" title="8">{
+                return nil, fmt.Errorf("failed to stat file on SMB: %w", err)
+        }</span>
+
+        <span class="cov7" title="1043">return &amp;FileInfo{
+                Path:    path,
+                Size:    info.Size(),
+                ModTime: info.ModTime(),
+                IsDir:   info.IsDir(),
+        }, nil</span>
+}
+
+// Close cleans up resources (no-op for SMB)
+func (b *SMBBackend) Close() error <span class="cov4" title="26">{
+        return nil
+}</span>
+
+// Server returns the SMB server address
+func (b *SMBBackend) Server() string <span class="cov0" title="0">{
+        return b.server
+}</span>
+
+// Share returns the SMB share name
+func (b *SMBBackend) Share() string <span class="cov0" title="0">{
+        return b.share
+}</span>
+
+// RootPath returns the absolute mount path
+func (b *SMBBackend) RootPath() string <span class="cov3" title="9">{
+        return b.rootPath
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package storage
+
+import (
+        "context"
+        "fmt"
+        "io"
+        "time"
+)
+
+// StorageBackend provides a unified interface for different storage types
+type StorageBackend interface {
+        // Probe checks if storage is accessible
+        Probe(ctx context.Context) error
+
+        // Walk traverses all files in the storage
+        Walk(ctx context.Context, fn WalkFunc) error
+
+        // Open opens a file for reading
+        Open(ctx context.Context, path string) (io.ReadCloser, error)
+
+        // Stat returns file metadata
+        Stat(ctx context.Context, path string) (*FileInfo, error)
+
+        // Close cleans up resources
+        Close() error
+}
+
+// WalkFunc is called for each file during Walk
+type WalkFunc func(path string, info *FileInfo) error
+
+// FileInfo contains file metadata
+type FileInfo struct {
+        Path    string
+        Size    int64
+        ModTime time.Time
+        IsDir   bool
+}
+
+// StorageType represents the type of storage backend
+type StorageType string
+
+const (
+        TypeLocal StorageType = "local"
+        TypeNFS   StorageType = "nfs"
+        TypeSMB   StorageType = "smb"
+)
+
+// BackendConfig contains configuration for creating a storage backend
+type BackendConfig struct {
+        Type      StorageType
+        Path      string  // Mount path or local directory path
+        Server    *string // NFS/SMB server address
+        Share     *string // NFS export path or SMB share name
+        CredsRef  *string // Optional credentials reference (for future use)
+}
+
+// NewBackend creates a new storage backend based on the provided configuration
+func NewBackend(cfg BackendConfig) (StorageBackend, error) <span class="cov10" title="21">{
+        switch cfg.Type </span>{
+        case TypeLocal:<span class="cov6" title="6">
+                return NewLocalFSBackend(cfg.Path)</span>
+
+        case TypeNFS:<span class="cov6" title="7">
+                if cfg.Server == nil || *cfg.Server == "" </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("NFS backend requires server address")
+                }</span>
+                <span class="cov6" title="6">if cfg.Share == nil || *cfg.Share == "" </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("NFS backend requires share path")
+                }</span>
+                <span class="cov5" title="5">return NewNFSBackend(*cfg.Server, *cfg.Share, cfg.Path)</span>
+
+        case TypeSMB:<span class="cov6" title="7">
+                if cfg.Server == nil || *cfg.Server == "" </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("SMB backend requires server address")
+                }</span>
+                <span class="cov6" title="6">if cfg.Share == nil || *cfg.Share == "" </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("SMB backend requires share name")
+                }</span>
+                <span class="cov5" title="5">return NewSMBBackend(*cfg.Server, *cfg.Share, cfg.Path)</span>
+
+        default:<span class="cov1" title="1">
+                return nil, fmt.Errorf("unsupported storage type: %s", cfg.Type)</span>
+        }
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

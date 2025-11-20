@@ -1,0 +1,53 @@
+# Binaries
+/bin/
+/fixity
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Coverage
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace file
+go.work
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Temporary
+/tmp/
+/temp/
+
+# Configuration (secrets)
+config.yaml
+config.local.yaml
+credentials/
+
+# Test data
+/testdata/scratch/

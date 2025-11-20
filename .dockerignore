@@ -1,0 +1,39 @@
+# Git
+.git
+.gitignore
+
+# Testing
+test-data/
+*_test.go
+*.test
+
+# Documentation
+*.md
+docs/
+
+# Build artifacts
+fixity
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Scripts
+test-deployment.sh
